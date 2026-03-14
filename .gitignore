@@ -1,0 +1,4 @@
+.env
+target/
+postgres_data/
+*.pem
