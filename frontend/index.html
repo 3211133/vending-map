@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>vending-map</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar" aria-hidden="false">
+        <div class="sidebar__header">
+          <h1>vending-map</h1>
+          <p>OSM とユーザー投稿の自販機マップ</p>
+          <button id="closeSidebarButton" class="sidebar__close" type="button" aria-label="閉じる">✕</button>
+        </div>
+
+        <section class="panel">
+          <label class="label" for="vendingTypeFilter">商品種別</label>
+          <select id="vendingTypeFilter">
+            <option value="">すべて</option>
+            <option value="drinks">drinks</option>
+            <option value="snacks">snacks</option>
+            <option value="cigarettes">cigarettes</option>
+            <option value="food">food</option>
+            <option value="bread">bread</option>
+            <option value="milk">milk</option>
+          </select>
+        </section>
+
+        <section class="panel panel--buttons">
+          <button id="toggleAddModeButton" type="button" aria-pressed="false">追加モード: OFF</button>
+          <button id="locateButton" type="button">現在地へ</button>
+        </section>
+
+        <section class="panel">
+          <h2>追加フォーム</h2>
+          <p class="form-step" id="addMachineStep">STEP 1: 地図で位置を選択</p>
+          <div class="form-stage-nav" role="tablist" aria-label="追加フォームステップ">
+            <button id="goStageLocation" class="form-stage-btn is-active" type="button" role="tab" aria-selected="true">1 位置</button>
+            <button id="goStageDetails" class="form-stage-btn" type="button" role="tab" aria-selected="false">2 情報</button>
+          </div>
+          <form id="addMachineForm" data-stage="1">
+            <div class="add-form-block add-form-block--location">
+              <p id="draftCoords" class="coords-text">地図をクリックして位置を選択</p>
+              <p id="coordsError" class="field-error" aria-live="polite"></p>
+            </div>
+
+            <div class="add-form-block add-form-block--details">
+            <label class="label" for="machineName">名前</label>
+            <input id="machineName" name="name" type="text" />
+            <p id="machineNameError" class="field-error" aria-live="polite"></p>
+
+            <label class="label" for="machineType">商品種別</label>
+            <select id="machineType" name="vending_type">
+              <option value="drinks">drinks</option>
+              <option value="snacks">snacks</option>
+              <option value="cigarettes">cigarettes</option>
+              <option value="food">food</option>
+              <option value="bread">bread</option>
+              <option value="milk">milk</option>
+            </select>
+            <p id="machineTypeError" class="field-error" aria-live="polite"></p>
+
+            <label class="label" for="machineOperator">運営者</label>
+            <input id="machineOperator" name="operator" type="text" />
+            <p id="machineOperatorError" class="field-error" aria-live="polite"></p>
+
+            <label class="label" for="machineHours">営業時間</label>
+            <input id="machineHours" name="opening_hours" type="text" />
+            <p id="machineHoursError" class="field-error" aria-live="polite"></p>
+            </div>
+
+            <p id="addMachineMessage" class="helper-message" role="status" aria-live="polite"></p>
+            <div class="form-actions">
+              <button id="nextStageButton" class="secondary-btn" type="button">情報入力へ</button>
+              <button id="submitMachineButton" type="submit" disabled>追加する</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel">
+          <h2>状態</h2>
+          <p id="statusMessage" role="status" aria-live="polite">地図を読み込み中...</p>
+        </section>
+      </aside>
+
+      <main class="map-wrapper">
+        <div id="map"></div>
+        <button id="openSidebarButton" class="map-menu-btn" type="button" aria-label="メニューを開く" aria-expanded="false">☰</button>
+        <div class="map-legend" aria-label="マーカー凡例">
+          <p>凡例</p>
+          <ul>
+            <li><span class="legend-dot legend-dot--active">✓</span> 稼働中</li>
+            <li><span class="legend-dot legend-dot--suspected">!</span> 要確認</li>
+            <li><span class="legend-dot legend-dot--removed">×</span> 撤去</li>
+          </ul>
+        </div>
+      </main>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="./js/app.js"></script>
+  </body>
+  </html>
