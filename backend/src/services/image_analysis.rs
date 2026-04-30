@@ -16,30 +16,30 @@ pub async fn analyze_vending_image(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
-        .map_err(|e| AppError::upstream(format!("Failed to spawn analyzer: {e}")))?;
+        .map_err(|e| AppError::internal(format!("Failed to spawn analyzer: {e}")))?;
 
     if let Some(mut stdin) = child.stdin.take() {
         stdin
             .write_all(image_bytes)
             .await
-            .map_err(|e| AppError::upstream(format!("Failed to write image to analyzer: {e}")))?;
+            .map_err(|e| AppError::internal(format!("Failed to write image to analyzer: {e}")))?;
     }
 
     let output = child
         .wait_with_output()
         .await
-        .map_err(|e| AppError::upstream(format!("Analyzer process error: {e}")))?;
+        .map_err(|e| AppError::internal(format!("Analyzer process error: {e}")))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AppError::upstream(format!("Analyzer exited non-zero: {stderr}")));
+        return Err(AppError::internal(format!("Analyzer exited non-zero: {stderr}")));
     }
 
     let result: AnalysisOutput = serde_json::from_slice(&output.stdout)
-        .map_err(|e| AppError::upstream(format!("Failed to parse analyzer output: {e}")))?;
+        .map_err(|e| AppError::internal(format!("Failed to parse analyzer output: {e}")))?;
 
     if let Some(err) = result.error {
-        return Err(AppError::upstream(format!("Analyzer reported error: {err}")));
+        return Err(AppError::internal(format!("Analyzer reported error: {err}")));
     }
 
     // Normalize temperature values to DB constraint values

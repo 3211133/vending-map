@@ -892,7 +892,8 @@ function renderItemsList(items, listEl) {
     const li = document.createElement("li");
     const icon = tempIcon[item.temperature] || "⚪";
     const price = item.price_yen != null ? ` ¥${item.price_yen}` : "";
-    li.textContent = `${icon} ${item.name}${price}`;
+    const name = item.name ? `${item.name} ` : "";
+    li.textContent = `${icon} ${name}${price}`.trim();
     listEl.appendChild(li);
   });
 }
