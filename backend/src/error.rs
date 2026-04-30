@@ -70,6 +70,13 @@ impl AppError {
         }
     }
 
+    pub fn internal(message: impl Into<String>) -> Self {
+        Self::Database {
+            code: "INTERNAL_ERROR",
+            message: message.into(),
+        }
+    }
+
     pub fn database(message: impl Into<String>) -> Self {
         Self::Database {
             code: "DATABASE_ERROR",
