@@ -22,7 +22,7 @@ pub struct MachineItem {
     pub id: Uuid,
     pub image_id: Uuid,
     pub machine_id: Uuid,
-    pub name: String,
+    pub name: Option<String>,
     pub price_yen: Option<i32>,
     pub temperature: String,
     pub created_at: DateTime<Utc>,
@@ -31,7 +31,7 @@ pub struct MachineItem {
 #[derive(Debug, Serialize)]
 pub struct ItemResponse {
     pub id: Uuid,
-    pub name: String,
+    pub name: Option<String>,
     pub price_yen: Option<i32>,
     pub temperature: String,
 }
@@ -68,7 +68,7 @@ pub struct InsertImageInput {
 pub struct InsertItemInput {
     pub image_id: Uuid,
     pub machine_id: Uuid,
-    pub name: String,
+    pub name: Option<String>,
     pub price_yen: Option<i32>,
     pub temperature: String,
 }
@@ -116,40 +116,20 @@ pub struct AnalysisOutput {
 mod tests {
     use super::*;
 
-    /// T-01: InsertItemInput.name が String（非 Option）であることを型レベルで検証。
-    /// 要件は「名前不要」なので Option<String> に変更が必要。
-    /// このテストは現在の型が String であることを明示的に確認し、
-    /// Option<String> に直すリグレッション防止を兼ねる。
-    #[test]
-    fn t01_insert_item_name_is_not_option() {
-        // String::from で値を作れる = String 型（Option<String> なら型エラー）
-        let _input = InsertItemInput {
-            image_id: Uuid::new_v4(),
-            machine_id: Uuid::new_v4(),
-            name: String::from("テスト"), // TODO(T-01): Option<String> に変更すること
-            price_yen: Some(130),
-            temperature: "cold".to_string(),
-        };
-        // このテストが通っている = name が String のまま = T-01 未修正
-        // T-01 修正後はこのテストを削除し t01_insert_item_name_is_option に差し替える
-    }
-
     /// T-01 修正確認用: InsertItemInput.name が Option<String> になったことを検証。
-    /// T-01 修正後にこちらのテストを有効化（#[ignore] を外す）こと。
     #[test]
-    #[ignore = "T-01 未修正のためスキップ"]
     fn t01_insert_item_name_is_option_after_fix() {
         let with_name = InsertItemInput {
             image_id: Uuid::new_v4(),
             machine_id: Uuid::new_v4(),
-            name: "商品名".to_string(),
+            name: Some("商品名".to_string()),
             price_yen: Some(150),
             temperature: "hot".to_string(),
         };
         let without_name = InsertItemInput {
             image_id: Uuid::new_v4(),
             machine_id: Uuid::new_v4(),
-            name: String::new(), // T-01 修正後は None を渡せるはず
+            name: None,
             price_yen: None,
             temperature: "cold".to_string(),
         };

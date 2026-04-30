@@ -90,11 +90,11 @@ pub async fn upload_image(
         Ok(slots) => {
             let inputs: Vec<InsertItemInput> = slots
                 .into_iter()
-                .filter(|s| s.name.is_some() || s.price_yen.is_some())
+                .filter(|s| s.price_yen.is_some() || s.temperature != "unknown")
                 .map(|s| InsertItemInput {
                     image_id,
                     machine_id,
-                    name: s.name.unwrap_or_else(|| "不明".to_string()),
+                    name: s.name,
                     price_yen: s.price_yen,
                     temperature: s.temperature,
                 })

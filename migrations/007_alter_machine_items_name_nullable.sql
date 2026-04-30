@@ -1,0 +1,1 @@
+ALTER TABLE machine_items ALTER COLUMN name DROP NOT NULL;
