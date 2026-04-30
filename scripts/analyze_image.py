@@ -4,7 +4,7 @@ Vending machine image analyzer.
 Reads image bytes from stdin, outputs JSON analysis to stdout.
 
 Output format:
-  {"slots": [{"name": str|null, "price_yen": int|null, "temperature": str}]}
+  {"slots": [{"price_yen": int|null, "temperature": str}]}
 """
 
 import sys
@@ -110,24 +110,6 @@ def extract_price(text: str) -> int | None:
     return None
 
 
-def clean_name(text: str) -> str | None:
-    """
-    OCRテキストから意味のある商品名行を抽出。
-    - 記号・空白だけの行を除外
-    - 最も長い「意味のある」行を返す
-    """
-    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-    # 日本語文字・英数字を含む行を候補に
-    candidates = [
-        ln for ln in lines
-        if re.search(r'[゠-ヿ぀-ゟ一-鿿a-zA-Z0-9]', ln)
-        and len(re.sub(r'[\s\W]', '', ln)) >= 2  # 有効文字 2文字以上
-    ]
-    if not candidates:
-        return None
-    return max(candidates, key=len)
-
-
 def ocr_region(region_bgr: np.ndarray) -> str:
     """前処理付きでOCRを実行。psm 11 = スパーステキスト（自販機ラベルに向く）。"""
     pil = preprocess_for_ocr(region_bgr)
@@ -164,14 +146,12 @@ def analyze(image_bytes: bytes) -> list[dict]:
         temperature = classify_temperature(lamp_region)
         ocr_text = ocr_region(label_region)
 
-        name = clean_name(ocr_text)
         price = extract_price(ocr_text)
 
-        if name is None and price is None and temperature == TEMPERATURE_UNKNOWN:
+        if price is None and temperature == TEMPERATURE_UNKNOWN:
             continue
 
         slots.append({
-            "name": name,
             "price_yen": price,
             "temperature": temperature,
         })
