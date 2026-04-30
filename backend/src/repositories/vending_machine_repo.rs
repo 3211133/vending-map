@@ -177,7 +177,7 @@ pub async fn update(
     pool: &PgPool,
     input: &UpdateVendingMachineInput,
 ) -> Result<VendingMachine, AppError> {
-    let machine = sqlx::query_as::<_, VendingMachine>(
+    let result = sqlx::query(
         r#"
         UPDATE vending_machines
         SET
@@ -189,26 +189,6 @@ pub async fn update(
             status = COALESCE($7, status),
             updated_at = NOW()
         WHERE id = $1
-        RETURNING
-            id,
-            osm_id,
-            ST_Y(geom) AS latitude,
-            ST_X(geom) AS longitude,
-            name,
-            vending_type,
-            operator,
-            opening_hours,
-            source,
-            osm_tags,
-            is_active,
-            trust_score,
-            status,
-            confirmed_at,
-            last_verified,
-            0::BIGINT AS exists_count,
-            0::BIGINT AS removed_count,
-            created_at,
-            updated_at
         "#,
     )
     .bind(input.id)
@@ -218,10 +198,16 @@ pub async fn update(
     .bind(input.opening_hours.as_deref())
     .bind(input.is_active)
     .bind(input.status.as_deref())
-    .fetch_one(pool)
+    .execute(pool)
     .await?;
 
-    Ok(machine)
+    if result.rows_affected() == 0 {
+        return Err(AppError::not_found("Vending machine not found"));
+    }
+
+    // RETURNING 句で投票数を JOIN するより、更新後に get_by_id() で再取得する方が
+    // クエリの重複を避けられる
+    get_by_id(pool, input.id).await
 }
 
 pub async fn deactivate(pool: &PgPool, id: Uuid) -> Result<(), AppError> {
