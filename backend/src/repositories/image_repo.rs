@@ -74,6 +74,28 @@ pub async fn insert_items(pool: &PgPool, items: &[InsertItemInput]) -> Result<Ve
     Ok(rows)
 }
 
+pub async fn find_image_by_sha256(
+    pool: &PgPool,
+    machine_id: Uuid,
+    sha256: &str,
+) -> Result<Option<MachineImage>, AppError> {
+    let row = sqlx::query_as::<_, MachineImage>(
+        r#"
+        SELECT id, machine_id, file_path, mime_type, file_size, sha256,
+               analyzed, analyze_error, uploaded_by, created_at
+        FROM machine_images
+        WHERE machine_id = $1 AND sha256 = $2
+        ORDER BY created_at
+        LIMIT 1
+        "#,
+    )
+    .bind(machine_id)
+    .bind(sha256)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row)
+}
+
 pub async fn get_image_by_id(pool: &PgPool, id: Uuid) -> Result<MachineImage, AppError> {
     let row = sqlx::query_as::<_, MachineImage>(
         r#"
