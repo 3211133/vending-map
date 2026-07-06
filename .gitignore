@@ -2,3 +2,7 @@
 target/
 postgres_data/
 *.pem
+
+# 巨大な OSM 元データ(GitHub 100MB 制限超過)。geofabrik から再取得可能
+data/japan-latest.osm.pbf
+data/kanto-latest.osm.pbf
