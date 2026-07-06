@@ -65,3 +65,35 @@
 **ファイル:** `backend/src/models/image.rs:12`, `handlers/images.rs:78`
 
 `usize as i32` のキャストは silent truncation。ファイルサイズ上限 10MB の現状では安全だが、上限を 2GB 超に変更する場合は要対応。詳細は Issue #1 を参照。
+
+---
+
+## 残課題(2026-07-07 時点)
+
+T-01〜T-08 の完了後に残っている、コード修正以外も含む課題。
+
+### 🟠 マイグレーション適用管理が無い
+`docker-entrypoint-initdb.d` によるマイグレーション適用は postgres_data ボリュームの**初回作成時のみ**実行される。既存ボリュームには 007 以降が自動適用されないため、手動適用が必要:
+
+```
+docker exec vending-map-postgres-1 psql -U vending -d vending_map \
+  -f /docker-entrypoint-initdb.d/007_alter_machine_items_name_nullable.sql
+```
+
+恒久対応としては `sqlx migrate` などの適用管理ツールの導入を検討する。
+
+### 🟠 CI 未整備
+GitHub Actions が無く、`cargo test` / `cargo clippy -D warnings` / `scripts/test_analyze_image.py` はローカル実行のみ。統合テストは PostGIS が必要なため、CI では services コンテナ(postgis/postgis:16-3.4)を立てる構成になる。
+
+### 🟡 ブラウザ/E2E での動作確認が未実施
+- T-04 の修正(名前なしアイテムが「⚪ ¥130」と表示される)はコードレビューと単体テストのみで、ブラウザでの目視確認は未実施
+- `tests/e2e/specs/smoke.spec.ts`(Playwright)も直近の変更に対して未実行
+
+### 🟢 `error.rs` の `Upstream` バリアントが未使用
+T-06 で `image_analysis.rs` が `AppError::internal()` に移行した結果、`Upstream` / `upstream()`(`error.rs:21,66`)はどこからも使われていない。Overpass API クライアント等で将来使う予定がなければ削除候補。
+
+### 🟢 `image.rs` のテストコメントが修正前の記述のまま
+`t05_slot_filter_drops_temperature_only_slot` のコメントが修正前のフィルター条件を「現在の条件」と記述している。実際の `handlers/images.rs:93` は修正済みのため、「修正前の条件の再現」と読み替える必要がある。
+
+### ℹ️ OSM 元データはリポジトリ非包含(運用メモ)
+`data/japan-latest.osm.pbf`(2.3GB)と `data/kanto-latest.osm.pbf`(439MB)は GitHub の 100MB 制限のため git 履歴から除去済み(.gitignore 登録済み)。必要な場合は [geofabrik](https://download.geofabrik.de/asia/japan.html) から再取得する。抽出済みの `*-vending.osm.pbf`(小サイズ)はリポジトリに含まれる。
