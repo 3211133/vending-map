@@ -1,9 +1,7 @@
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use uuid::Uuid;
 use vending_map_backend::{
-    error::AppError,
-    models::vote::CreateVoteInput,
-    repositories::vote_repo,
+    error::AppError, models::vote::CreateVoteInput, repositories::vote_repo,
 };
 
 async fn test_pool() -> Option<PgPool> {
