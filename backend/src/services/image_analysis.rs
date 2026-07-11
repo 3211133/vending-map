@@ -18,17 +18,20 @@ pub async fn analyze_vending_image(
         .spawn()
         .map_err(|e| AppError::internal(format!("Failed to spawn analyzer: {e}")))?;
 
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(image_bytes)
-            .await
-            .map_err(|e| AppError::internal(format!("Failed to write image to analyzer: {e}")))?;
-    }
-
-    let output = child
-        .wait_with_output()
-        .await
-        .map_err(|e| AppError::internal(format!("Analyzer process error: {e}")))?;
+    // stdin への書き込みと子プロセスの終了待ちを並行して行う。
+    // アナライザが stdin を読み切らずに終了するケース(依存ライブラリ不足など)では
+    // 書き込みが EPIPE で失敗するが、その場合も stdout の JSON エラーや
+    // 終了コードの方が原因を正しく伝えるため、書き込みエラーでは中断しない。
+    let stdin = child.stdin.take();
+    let write_stdin = async {
+        if let Some(mut stdin) = stdin {
+            if let Err(e) = stdin.write_all(image_bytes).await {
+                tracing::debug!("Analyzer stdin write aborted: {e}");
+            }
+        }
+    };
+    let (output, ()) = tokio::join!(child.wait_with_output(), write_stdin);
+    let output = output.map_err(|e| AppError::internal(format!("Analyzer process error: {e}")))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);

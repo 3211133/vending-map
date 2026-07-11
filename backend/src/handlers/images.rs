@@ -53,9 +53,27 @@ pub async fn upload_image(
     if bytes.len() > MAX_FILE_SIZE {
         return Err(AppError::bad_request("Image exceeds 10 MB limit"));
     }
+    // MAX_FILE_SIZE (10 MB) チェック済みだが、上限を i32::MAX 超に拡大しても
+    // silent truncation しないよう明示的に変換する
+    let file_size = i32::try_from(bytes.len())
+        .map_err(|_| AppError::bad_request("Image size exceeds supported range"))?;
 
     // SHA-256 for deduplication detection
     let sha256 = hex::encode(Sha256::digest(&bytes));
+
+    // 同一マシンへの同一画像の再アップロードは既存レコードを返し、再解析しない
+    if let Some(existing) =
+        image_repo::find_image_by_sha256(&state.pool, machine_id, &sha256).await?
+    {
+        let items = image_repo::list_items_by_image(&state.pool, existing.id).await?;
+        return Ok((
+            StatusCode::OK,
+            Json(UploadResponse {
+                image: image_to_response(existing, items),
+            }),
+        ));
+    }
+
     let ext = mime_to_ext(&mime_type);
     let image_id = Uuid::new_v4();
 
@@ -70,19 +88,24 @@ pub async fn upload_image(
         .map_err(|e| AppError::database(format!("Failed to write image file: {e}")))?;
 
     // Insert image record (analyzed=false initially)
-    let _image = image_repo::insert_image(
+    let insert_result = image_repo::insert_image(
         &state.pool,
         &InsertImageInput {
             id: image_id,
             machine_id,
-            file_path,
+            file_path: file_path.clone(),
             mime_type,
-            file_size: bytes.len() as i32,
+            file_size,
             sha256,
             uploaded_by: None,
         },
     )
-    .await?;
+    .await;
+    if insert_result.is_err() {
+        // DB 登録に失敗した画像ファイルを残すとディスクに孤児が溜まる
+        let _ = fs::remove_file(&file_path).await;
+    }
+    let _image = insert_result?;
 
     // Run OCR/color analysis
     let script_path = std::env::var("ANALYZE_SCRIPT")
