@@ -6,7 +6,10 @@ use crate::{
     models::image::{InsertImageInput, InsertItemInput, MachineImage, MachineItem},
 };
 
-pub async fn insert_image(pool: &PgPool, input: &InsertImageInput) -> Result<MachineImage, AppError> {
+pub async fn insert_image(
+    pool: &PgPool,
+    input: &InsertImageInput,
+) -> Result<MachineImage, AppError> {
     let row = sqlx::query_as::<_, MachineImage>(
         r#"
         INSERT INTO machine_images
@@ -45,7 +48,10 @@ pub async fn mark_analyzed(pool: &PgPool, id: Uuid, error: Option<&str>) -> Resu
     Ok(())
 }
 
-pub async fn insert_items(pool: &PgPool, items: &[InsertItemInput]) -> Result<Vec<MachineItem>, AppError> {
+pub async fn insert_items(
+    pool: &PgPool,
+    items: &[InsertItemInput],
+) -> Result<Vec<MachineItem>, AppError> {
     if items.is_empty() {
         return Ok(vec![]);
     }
@@ -63,9 +69,7 @@ pub async fn insert_items(pool: &PgPool, items: &[InsertItemInput]) -> Result<Ve
             .push_bind(&item.temperature);
     });
 
-    builder.push(
-        " RETURNING id, image_id, machine_id, name, price_yen, temperature, created_at",
-    );
+    builder.push(" RETURNING id, image_id, machine_id, name, price_yen, temperature, created_at");
 
     let rows = builder
         .build_query_as::<MachineItem>()
@@ -89,7 +93,10 @@ pub async fn get_image_by_id(pool: &PgPool, id: Uuid) -> Result<MachineImage, Ap
     Ok(row)
 }
 
-pub async fn list_images_by_machine(pool: &PgPool, machine_id: Uuid) -> Result<Vec<MachineImage>, AppError> {
+pub async fn list_images_by_machine(
+    pool: &PgPool,
+    machine_id: Uuid,
+) -> Result<Vec<MachineImage>, AppError> {
     let rows = sqlx::query_as::<_, MachineImage>(
         r#"
         SELECT id, machine_id, file_path, mime_type, file_size, sha256,
@@ -105,7 +112,10 @@ pub async fn list_images_by_machine(pool: &PgPool, machine_id: Uuid) -> Result<V
     Ok(rows)
 }
 
-pub async fn list_items_by_image(pool: &PgPool, image_id: Uuid) -> Result<Vec<MachineItem>, AppError> {
+pub async fn list_items_by_image(
+    pool: &PgPool,
+    image_id: Uuid,
+) -> Result<Vec<MachineItem>, AppError> {
     let rows = sqlx::query_as::<_, MachineItem>(
         r#"
         SELECT id, image_id, machine_id, name, price_yen, temperature, created_at

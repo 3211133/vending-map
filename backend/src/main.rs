@@ -7,12 +7,7 @@ use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use vending_map_backend::{
-    config::AppConfig,
-    error::AppError,
-    handlers,
-    AppState,
-};
+use vending_map_backend::{config::AppConfig, error::AppError, handlers, AppState};
 
 #[tokio::main]
 async fn main() -> Result<(), AppError> {
@@ -63,8 +58,14 @@ async fn main() -> Result<(), AppError> {
                 .post(handlers::images::upload_image)
                 .layer(DefaultBodyLimit::max(10 * 1024 * 1024)),
         )
-        .route("/api/images/:image_id", get(handlers::images::get_image_binary))
-        .route("/api/images/:image_id/items", get(handlers::images::list_items))
+        .route(
+            "/api/images/:image_id",
+            get(handlers::images::get_image_binary),
+        )
+        .route(
+            "/api/images/:image_id/items",
+            get(handlers::images::list_items),
+        )
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state);
@@ -82,6 +83,6 @@ async fn main() -> Result<(), AppError> {
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-        .await
-        .map_err(|e| AppError::database(e.to_string()))
+    .await
+    .map_err(|e| AppError::database(e.to_string()))
 }

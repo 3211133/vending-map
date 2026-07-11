@@ -6,167 +6,94 @@
 - 🟠 **設計の問題** — 動くが後で困る
 - 🟢 **改善** — 対応しなくても致命的ではない
 
----
+## ステータスまとめ
 
-## 🔴 T-01: `machine_items.name NOT NULL` 制約 vs 要件「名前不要」
-
-**ファイル:**
-- `migrations/006_create_machine_items.sql:5` — `name TEXT NOT NULL`
-- `backend/src/models/image.rs:25` — `pub name: String`
-- `backend/src/models/image.rs:33` — `pub name: String`（ItemResponse）
-- `backend/src/models/image.rs:70` — `pub name: String`（InsertItemInput）
-- `backend/src/handlers/images.rs:97` — `name: s.name.unwrap_or_else(|| "不明".to_string())`
-
-**問題:** ユーザー要件は「外観・価格・冷温のみ」で商品名は不要。しかし DB スキーマの `name` は `NOT NULL` のため、Python が `name: null` を返すと INSERT が失敗するか、`"不明"` というダミー値が入る。
-
-**修正:**
-1. `migrations/007_alter_machine_items_name_nullable.sql` を作成し `name` を NULL 許可に変更
-2. `models/image.rs` の `name: String` を `name: Option<String>` に変更（3箇所）
-3. `handlers/images.rs` の `"不明"` フォールバックを削除し `name: s.name` に変更
-4. `InsertItemInput.name` を `Option<String>` に変更し `image_repo.rs` の bind も対応
-
-**テスト:** `tests/unit/image_name_nullable_test.rs` — コンパイル時型チェックで検出可能
+| ID | 優先度 | 内容 | 状態 |
+|----|--------|------|------|
+| T-01 | 🔴 高 | `machine_items.name NOT NULL` 制約 vs 要件「名前不要」 | ✅ 対応済み (`5dbe87e`) |
+| T-02 | 🟡 中 | `analyze_image.py` の不要な `name` 出力 | ✅ 対応済み (`7e23eba`) |
+| T-03 | 🔴 高 | `update()` RETURNING で投票数が常に 0 | ✅ 対応済み (`32897aa`) |
+| T-04 | 🟡 中 | `renderItemsList` の `item.name` 無条件依存 | ✅ 対応済み (`fe054d1`) |
+| T-05 | 🟠 中 | OCR フィルター条件の `name` 依存 | ✅ 対応済み (`5dbe87e`) |
+| T-06 | 🟠 低 | analyzer エラーが HTTP 502 になる | ✅ 対応済み (`fe054d1`) |
+| T-07 | 🟢 低 | INSERT に `name` カラムが残存 | ✅ 現状維持で問題なし(下記参照) |
+| T-08 | 🟢 低 | 未使用 import `ImageEnhance` | ✅ 対応済み (`7e23eba`) |
+| T-09 | 🟢 低 | `file_size: i32` の潜在オーバーフロー | ⏳ 未対応 → [Issue #1](https://github.com/3211133/vending-map/issues/1) |
 
 ---
 
-## 🟡 T-02: `analyze_image.py` が不要な `name` フィールドを出力している
+## 対応済み項目の詳細
 
-**ファイル:** `scripts/analyze_image.py:167,173`
+### T-01: `machine_items.name` を NULL 許可に変更 ✅
+- `migrations/007_alter_machine_items_name_nullable.sql` で `NOT NULL` を解除
+- `models/image.rs` の `name` を `Option<String>` に変更(3箇所)
+- `handlers/images.rs` の `"不明"` フォールバックを削除
+- テスト: `backend/src/models/image.rs` の `t01_insert_item_name_is_option_after_fix`
 
-**問題:** 要件は価格と冷温のみだが、スクリプトは `name` フィールドを含む JSON を返す。`clean_name()` と OCR による名前抽出が無駄に処理時間を消費している（tesseract 呼び出しは 200–500 ms）。
+### T-02: `analyze_image.py` から `name` 出力を削除 ✅
+- `clean_name()` と名前抽出用 OCR を削除。出力は `{"price_yen": ..., "temperature": ...}` のみ
+- `ocr_region()` は価格抽出に必要なため残置
+- テスト: `scripts/test_analyze_image.py`
 
-**修正:**
-- `clean_name()` 関数を削除
-- `ocr_region()` 呼び出しを削除（価格抽出の OCR も不要なら削除）
-- スロットから `name` キーを削除し `{"price_yen": ..., "temperature": ...}` のみ出力
-- docstring の Output format を更新
+### T-03: `update()` 後の投票数を保持 ✅
+- `vending_machine_repo::update()` が更新後に `get_by_id()` で再取得する方式に変更
+- `create()` の `0::BIGINT` は新規作成直後のため仕様通り(変更なし)
+- テスト: `backend/tests/vote_count_after_update.rs`(実 DB 統合テスト)
 
-**テスト:** `tests/unit/test_analyze_image.py` — JSON 出力に `name` キーが含まれないことを検証
+### T-04: `renderItemsList` の null 安全化 ✅
+- `frontend/js/app.js` で `item.name` が null/undefined の場合に名前部分を省略
 
----
+### T-05: スロットフィルターを temperature 対応に変更 ✅
+- `handlers/images.rs` のフィルターを `price_yen.is_some() || temperature != "unknown"` に変更
+- テスト: `backend/src/models/image.rs` の `t05_slot_filter_*`
 
-## 🔴 T-03: `update()` RETURNING で投票数が常に 0 になる
+### T-06: analyzer エラーを HTTP 500 に変更 ✅
+- `image_analysis.rs` のエラーを `AppError::internal()` に変更(`error.rs` にコンストラクタ追加)
 
-**ファイル:** `backend/src/repositories/vending_machine_repo.rs:208-209`
+### T-07: INSERT の `name` カラム 🟢 現状維持
+- T-01 で NULL 許可になったため `Option<String>` の bind で正常動作する
+- `name` カラムを完全削除する場合のみ `image_repo.rs:54` の INSERT 文の変更が必要
 
-```sql
-0::BIGINT AS exists_count,
-0::BIGINT AS removed_count,
-```
-
-**問題:** UPDATE 後の RETURNING 句でハードコードの `0` を返しているため、`update()` を呼んだ直後は投票数が 0 になって返る。`create()` も同様（行 155-156）。
-
-- `create()` は新規作成直後なので 0 は正しい → **問題なし**
-- `update()` は既存レコードの更新なので 0 は**バグ** — API レスポンスで投票数が消える
-
-**修正:** `update()` の RETURNING を `get_by_id()` と同様に LEFT JOIN 形式に変更するか、更新後に `get_by_id()` を呼び出すように変更する。
-
-**テスト:** `tests/unit/vote_count_after_update_test.rs` — `update()` 後に exists_count が保持されることを検証
-
----
-
-## 🟡 T-04: `renderItemsList` が `item.name` に無条件依存
-
-**ファイル:** `frontend/js/app.js:895`
-
-```js
-li.textContent = `${icon} ${item.name}${price}`;
-```
-
-**問題:** T-01/T-02 の修正後、API の `items[].name` は `null` になる可能性がある。現状のコードは `null` をそのまま文字列結合するため「⚪ null ¥130」のように表示される。
-
-**修正:** `item.name` が null/undefined の場合に名前部分を省略するよう変更。
-
-```js
-const name = item.name ? `${item.name} ` : "";
-li.textContent = `${icon} ${name}${price}`.trim();
-```
-
-**テスト:** ブラウザ／Playwright — 名前なし・価格なしのアイテムで「⚪ ¥130」と表示されることを確認
+### T-08: `ImageEnhance` import 削除 ✅
 
 ---
 
-## 🟠 T-05: OCR フィルター条件が `name` に依存している
+## 未対応項目
 
-**ファイル:** `backend/src/handlers/images.rs:93`
-
-```rust
-.filter(|s| s.name.is_some() || s.price_yen.is_some())
-```
-
-**問題:** `name` を廃止した後、このフィルターは `s.price_yen.is_some()` のみになる。すると **temperature だけ取れたスロット（price_yen = null）が捨てられる**。冷温情報を保存するという要件を満たせない。
-
-**修正:** フィルター条件を `price_yen.is_some() || temperature != "unknown"` に変更。
-
-**テスト:** `tests/unit/slot_filter_test.rs` — temperature のみのスロットが保持されることを検証
-
----
-
-## 🟠 T-06: `image_analysis.rs` のエラーが HTTP 502 Bad Gateway になる
-
-**ファイル:** `backend/src/services/image_analysis.rs:35`
-**ファイル:** `backend/src/error.rs:86` — `Upstream => StatusCode::BAD_GATEWAY`
-
-**問題:** Python スクリプトが存在しない、実行権限がない、依存ライブラリが不足している場合に HTTP 502 を返す。502 は「上流サーバーへの接触失敗」を意味するが、これはサーバー内部の処理失敗なので 500 Internal Server Error が適切。
-
-**修正:** `image_analysis.rs` のエラーを `AppError::upstream()` から `AppError::database()` に変更（または新しい `AppError::internal()` コンストラクタを追加）。
-
-**テスト:** コンパイル時には検出不可。統合テストまたはコードレビューで対応。
-
----
-
-## 🟢 T-07: `machine_items` INSERT で `name` カラムを含んでいる
-
-**ファイル:** `backend/src/repositories/image_repo.rs:54`
-
-```rust
-QueryBuilder::new("INSERT INTO machine_items (id, image_id, machine_id, name, price_yen, temperature) ")
-```
-
-**問題:** T-01 で `name` を NULL 許可にした後も、INSERT 文は `name` カラムを含めている。T-01 の修正と合わせて、`name` が `Option<String>` になれば bind で `None` を渡せるため動作はする。ただし、将来的に `name` カラムを完全削除するなら、ここも合わせて変更が必要。
-
-**現時点:** T-01 の修正後は動作に問題なし（NULL 値を INSERT 可能になるため）。
-
----
-
-## 🟢 T-08: `ImageEnhance` が import されているが未使用
-
-**ファイル:** `scripts/analyze_image.py:18`
-
-```python
-from PIL import Image, ImageEnhance, ImageFilter
-```
-
-**問題:** `ImageEnhance` が import されているが使用されていない。無害だが不要。
-
-**修正:** `ImageEnhance` を import から削除。
-
----
-
-## 🟢 T-09: `file_size: i32` の潜在的オーバーフロー
+### 🟢 T-09: `file_size: i32` の潜在的オーバーフロー → [Issue #1](https://github.com/3211133/vending-map/issues/1)
 
 **ファイル:** `backend/src/models/image.rs:12`, `handlers/images.rs:78`
 
-```rust
-file_size: bytes.len() as i32,
-```
-
-**問題:** `usize as i32` のキャストは Rust では silent truncation（パニックなし）。ファイルサイズ上限が 10 MB = 10,485,760 で `i32::MAX` は 2,147,483,647 なので現状は問題ない。しかし上限を 2 GB 以上に変更した場合に溢れる。
-
-**現時点:** 10 MB 制限がある限り安全。
+`usize as i32` のキャストは silent truncation。ファイルサイズ上限 10MB の現状では安全だが、上限を 2GB 超に変更する場合は要対応。詳細は Issue #1 を参照。
 
 ---
 
-## まとめ: 優先順位
+## 残課題(2026-07-07 時点)
 
-| ID | 優先度 | 難易度 | テスト可否 |
-|----|--------|--------|-----------|
-| T-01 | 🔴 高 | 小 | コンパイル時 |
-| T-02 | 🟡 中 | 小 | Python 単体テスト |
-| T-03 | 🔴 高 | 小 | Rust 単体テスト（DB 要） |
-| T-04 | 🟡 中 | 小 | ブラウザ目視 |
-| T-05 | 🟠 中 | 小 | Rust 単体テスト |
-| T-06 | 🟠 低 | 小 | コードレビュー |
-| T-07 | 🟢 低 | 小 | — |
-| T-08 | 🟢 低 | 小 | — |
-| T-09 | 🟢 低 | 低 | — |
+T-01〜T-08 の完了後に残っている、コード修正以外も含む課題。
+
+### 🟠 マイグレーション適用管理が無い
+`docker-entrypoint-initdb.d` によるマイグレーション適用は postgres_data ボリュームの**初回作成時のみ**実行される。既存ボリュームには 007 以降が自動適用されないため、手動適用が必要:
+
+```
+docker exec vending-map-postgres-1 psql -U vending -d vending_map \
+  -f /docker-entrypoint-initdb.d/007_alter_machine_items_name_nullable.sql
+```
+
+恒久対応としては `sqlx migrate` などの適用管理ツールの導入を検討する。
+
+### 🟠 CI 未整備
+GitHub Actions が無く、`cargo test` / `cargo clippy -D warnings` / `scripts/test_analyze_image.py` はローカル実行のみ。統合テストは PostGIS が必要なため、CI では services コンテナ(postgis/postgis:16-3.4)を立てる構成になる。
+
+### 🟡 ブラウザ/E2E での動作確認が未実施
+- T-04 の修正(名前なしアイテムが「⚪ ¥130」と表示される)はコードレビューと単体テストのみで、ブラウザでの目視確認は未実施
+- `tests/e2e/specs/smoke.spec.ts`(Playwright)も直近の変更に対して未実行
+
+### 🟢 `error.rs` の `Upstream` バリアントが未使用
+T-06 で `image_analysis.rs` が `AppError::internal()` に移行した結果、`Upstream` / `upstream()`(`error.rs:21,66`)はどこからも使われていない。Overpass API クライアント等で将来使う予定がなければ削除候補。
+
+### 🟢 `image.rs` のテストコメントが修正前の記述のまま
+`t05_slot_filter_drops_temperature_only_slot` のコメントが修正前のフィルター条件を「現在の条件」と記述している。実際の `handlers/images.rs:93` は修正済みのため、「修正前の条件の再現」と読み替える必要がある。
+
+### ℹ️ OSM 元データはリポジトリ非包含(運用メモ)
+`data/japan-latest.osm.pbf`(2.3GB)と `data/kanto-latest.osm.pbf`(439MB)は GitHub の 100MB 制限のため git 履歴から除去済み(.gitignore 登録済み)。必要な場合は [geofabrik](https://download.geofabrik.de/asia/japan.html) から再取得する。抽出済みの `*-vending.osm.pbf`(小サイズ)はリポジトリに含まれる。

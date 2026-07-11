@@ -32,14 +32,18 @@ pub async fn analyze_vending_image(
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AppError::internal(format!("Analyzer exited non-zero: {stderr}")));
+        return Err(AppError::internal(format!(
+            "Analyzer exited non-zero: {stderr}"
+        )));
     }
 
     let result: AnalysisOutput = serde_json::from_slice(&output.stdout)
         .map_err(|e| AppError::internal(format!("Failed to parse analyzer output: {e}")))?;
 
     if let Some(err) = result.error {
-        return Err(AppError::internal(format!("Analyzer reported error: {err}")));
+        return Err(AppError::internal(format!(
+            "Analyzer reported error: {err}"
+        )));
     }
 
     // Normalize temperature values to DB constraint values

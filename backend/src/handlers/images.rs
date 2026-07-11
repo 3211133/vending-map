@@ -11,7 +11,9 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    models::image::{image_to_response, ImageResponse, InsertImageInput, InsertItemInput, UploadResponse},
+    models::image::{
+        image_to_response, ImageResponse, InsertImageInput, InsertItemInput, UploadResponse,
+    },
     repositories::{image_repo, vending_machine_repo},
     services::image_analysis,
     AppState,
@@ -113,9 +115,12 @@ pub async fn upload_image(
 
     // Re-fetch image to get updated analyzed flag
     let image = image_repo::get_image_by_id(&state.pool, image_id).await?;
-    Ok((status, Json(UploadResponse {
-        image: image_to_response(image, items),
-    })))
+    Ok((
+        status,
+        Json(UploadResponse {
+            image: image_to_response(image, items),
+        }),
+    ))
 }
 
 pub async fn list_images(
@@ -155,7 +160,10 @@ pub async fn list_items(
     image_repo::get_image_by_id(&state.pool, image_id).await?;
     let items = image_repo::list_items_by_image(&state.pool, image_id).await?;
     Ok(Json(
-        items.into_iter().map(crate::models::image::item_to_response).collect(),
+        items
+            .into_iter()
+            .map(crate::models::image::item_to_response)
+            .collect(),
     ))
 }
 

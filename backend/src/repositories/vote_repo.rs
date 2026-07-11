@@ -48,7 +48,10 @@ pub async fn create_vote(pool: &PgPool, input: &CreateVoteInput) -> Result<(), A
     Ok(())
 }
 
-pub async fn refresh_machine_status(pool: &PgPool, machine_id: Uuid) -> Result<VoteSummary, AppError> {
+pub async fn refresh_machine_status(
+    pool: &PgPool,
+    machine_id: Uuid,
+) -> Result<VoteSummary, AppError> {
     let row = sqlx::query(
         r#"
         WITH summary AS (

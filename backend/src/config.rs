@@ -23,8 +23,7 @@ impl AppConfig {
                 .parse()
                 .map_err(|_| AppError::bad_request("Invalid SERVER_PORT"))?,
             daily_secret: read_var("DAILY_SECRET")?,
-            upload_dir: env::var("UPLOAD_DIR")
-                .unwrap_or_else(|_| "/app/uploads".to_string()),
+            upload_dir: env::var("UPLOAD_DIR").unwrap_or_else(|_| "/app/uploads".to_string()),
         })
     }
 

@@ -110,8 +110,6 @@ pub struct AnalysisOutput {
     pub error: Option<String>,
 }
 
-// ---- T-01: name は NOT NULL (String) だが要件は「名前不要」 ----
-// ---- T-05: slot フィルターが name.is_some() に依存している ----
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -141,10 +139,22 @@ mod tests {
     /// temperature のみのスロットが誤って捨てられることを検出する。
     #[test]
     fn t05_slot_filter_drops_temperature_only_slot() {
-        let slots = vec![
-            SlotAnalysis { name: None, price_yen: None, temperature: "cold".to_string() },
-            SlotAnalysis { name: None, price_yen: Some(130), temperature: "unknown".to_string() },
-            SlotAnalysis { name: Some("商品".to_string()), price_yen: None, temperature: "hot".to_string() },
+        let slots = [
+            SlotAnalysis {
+                name: None,
+                price_yen: None,
+                temperature: "cold".to_string(),
+            },
+            SlotAnalysis {
+                name: None,
+                price_yen: Some(130),
+                temperature: "unknown".to_string(),
+            },
+            SlotAnalysis {
+                name: Some("商品".to_string()),
+                price_yen: None,
+                temperature: "hot".to_string(),
+            },
         ];
 
         // handlers/images.rs:93 の現在のフィルター条件を再現
@@ -161,7 +171,9 @@ mod tests {
             "現在のフィルターは temperature のみのスロットを捨てる（T-05 のバグ）"
         );
         assert!(
-            current_filter.iter().all(|s| s.name.is_some() || s.price_yen.is_some()),
+            current_filter
+                .iter()
+                .all(|s| s.name.is_some() || s.price_yen.is_some()),
             "フィルターを通過したスロットはすべて name か price_yen を持つ"
         );
 
@@ -181,9 +193,17 @@ mod tests {
     /// T-05 追加: unknown 温度かつ price なしのスロットは保存不要であることを確認
     #[test]
     fn t05_slot_filter_discards_fully_unknown_slot() {
-        let slots = vec![
-            SlotAnalysis { name: None, price_yen: None, temperature: "unknown".to_string() },
-            SlotAnalysis { name: None, price_yen: Some(100), temperature: "unknown".to_string() },
+        let slots = [
+            SlotAnalysis {
+                name: None,
+                price_yen: None,
+                temperature: "unknown".to_string(),
+            },
+            SlotAnalysis {
+                name: None,
+                price_yen: Some(100),
+                temperature: "unknown".to_string(),
+            },
         ];
 
         let fixed_filter: Vec<_> = slots
@@ -194,23 +214,5 @@ mod tests {
         // 最初のスロット（全部 unknown/None）は捨てる
         assert_eq!(fixed_filter.len(), 1);
         assert_eq!(fixed_filter[0].price_yen, Some(100));
-    }
-
-    /// T-03: update() RETURNING が exists_count=0 を返すことを型コメントで記録。
-    /// DB 統合テストなしには自動検出不可。この関数の存在が課題のドキュメントとなる。
-    #[test]
-    fn t03_update_returns_hardcoded_zero_vote_counts_documented() {
-        // vending_machine_repo::update() の RETURNING 句:
-        //   0::BIGINT AS exists_count,   ← 行 208
-        //   0::BIGINT AS removed_count,  ← 行 209
-        //
-        // create() は新規作成直後なので 0 が正しい。
-        // update() は既存レコード更新なので、実際の投票数を返すべき。
-        //
-        // 修正案: update() の RETURNING を get_by_id() と同形式の LEFT JOIN に変更、
-        //        または update() 後に get_by_id() を呼び出す。
-        //
-        // このテストは「課題の存在をコードベースに記録する」目的のため、常に pass する。
-        assert!(true, "T-03 は DB 統合テストで検証すること");
     }
 }
